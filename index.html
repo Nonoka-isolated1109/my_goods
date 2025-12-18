@@ -6,16 +6,15 @@
     <title>私のグッズ管理アプリ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body { background-color: #f5f3ff; -webkit-tap-highlight-color: transparent; }
         .goods-card { transition: transform 0.2s; }
-        .goods-card:hover { transform: scale(1.02); }
-        body { background-color: #f5f3ff; }
     </style>
 </head>
 <body class="min-h-screen pb-20">
 
     <header class="bg-white shadow-md p-4 sticky top-0 z-10 border-b-2 border-purple-200">
         <div class="max-w-4xl mx-auto flex flex-col gap-3">
-            <h1 class="text-xl font-bold text-purple-700 text-center" onclick="location.reload()" style="cursor: pointer;">My Collection</h1>
+            <h1 class="text-xl font-bold text-purple-700 text-center" onclick="location.reload()" style="cursor:pointer;">My Collection</h1>
             <div id="search-container" class="hidden">
                 <input type="text" id="search-input" placeholder="名前で検索..." 
                     class="w-full p-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-400">
@@ -30,13 +29,10 @@
             <button onclick="selectCategory('紙類')" class="bg-white p-8 rounded-2xl shadow-sm border-2 border-purple-100 text-lg font-bold text-purple-800">紙類</button>
             <button onclick="selectCategory('その他')" class="bg-white p-8 rounded-2xl shadow-sm border-2 border-purple-100 text-lg font-bold text-purple-800">その他</button>
             
-            <div class="col-span-2 mt-10 p-4 border-t border-purple-200 text-center">
-                <p class="text-xs text-gray-500 mb-2 font-bold">データの管理</p>
-                <div class="flex gap-2">
-                    <button onclick="exportData()" class="flex-1 bg-purple-100 text-purple-700 p-2 rounded text-xs font-bold">保存ファイル作成</button>
-                    <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-purple-100 text-purple-700 p-2 rounded text-xs font-bold">ファイルから復元</button>
-                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
-                </div>
+            <div class="col-span-2 mt-10 p-4 border-t border-purple-200 text-center flex gap-2">
+                <button onclick="exportData()" class="flex-1 bg-purple-100 text-purple-700 p-2 rounded text-xs font-bold">保存ファイル作成</button>
+                <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-purple-100 text-purple-700 p-2 rounded text-xs font-bold">ファイルから復元</button>
+                <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
             </div>
         </div>
 
@@ -49,18 +45,17 @@
 
             <div class="text-center mb-6">
                 <div class="inline-block bg-purple-600 text-white px-6 py-2 rounded-full shadow-md">
-                    <span id="total-count-label" class="text-sm font-bold"></span>の総数：
-                    <span id="total-count-number" class="text-xl font-black">0</span> 個
+                    <span id="total-count-label"></span>の総数：<span id="total-count-number" class="text-xl font-black">0</span> 個
                 </div>
             </div>
 
             <div id="add-form" class="hidden bg-white p-6 rounded-xl shadow-inner mb-8 border-2 border-dashed border-purple-300">
                 <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-purple-800">新規登録</h3><button onclick="closeAddForm()" class="text-gray-400 text-sm">中止</button></div>
                 <div class="space-y-4">
-                    <input type="text" id="new-name" placeholder="グッズ名" class="w-full p-2 border border-purple-200 rounded">
-                    <input type="number" id="new-count" value="1" min="0" class="w-full p-2 border border-purple-200 rounded">
+                    <input type="text" id="new-name" placeholder="グッズ名" class="w-full p-2 border border-purple-200 rounded outline-none">
+                    <input type="number" id="new-count" value="1" min="0" class="w-full p-2 border border-purple-200 rounded outline-none">
                     <input type="file" id="new-image" accept="image/*" class="w-full p-2 border border-purple-100 rounded text-sm">
-                    <button onclick="addItem()" class="w-full bg-purple-600 text-white p-3 rounded-lg font-bold">保存する</button>
+                    <button id="save-btn" onclick="addItem()" class="w-full bg-purple-600 text-white p-3 rounded-lg font-bold shadow-md">保存する</button>
                 </div>
             </div>
             <div id="goods-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
@@ -68,15 +63,14 @@
     </main>
 
     <script>
-        // データを即座に読み込む（グローバル変数に保持）
-        let allGoods = [];
-        try {
-            const saved = localStorage.getItem('myGoodsData');
-            if (saved) allGoods = JSON.parse(saved);
-        } catch (e) {
-            console.error("データの読み込みに失敗しました", e);
+        // 【最重要】データを読み込む関数
+        function getSavedData() {
+            const data = localStorage.getItem('myGoodsData');
+            return data ? JSON.parse(data) : [];
         }
 
+        // ページを開いた瞬間に一度だけデータを取得
+        let allGoods = getSavedData();
         let currentCategory = "";
 
         function selectCategory(cat) {
@@ -93,7 +87,6 @@
             document.getElementById('category-view').classList.remove('hidden');
             document.getElementById('items-view').classList.add('hidden');
             document.getElementById('search-container').classList.add('hidden');
-            closeAddForm();
         }
 
         function openAddForm() {
@@ -106,50 +99,58 @@
         function closeAddForm() { document.getElementById('add-form').classList.add('hidden'); }
 
         async function addItem() {
-            const name = document.getElementById('new-name').value;
+            const name = document.getElementById('new-name').value.trim();
             const count = parseInt(document.getElementById('new-count').value) || 0;
             const fileInput = document.getElementById('new-image');
             if (!name) return alert("名前を入力してください");
+
+            document.getElementById('save-btn').innerText = "保存中...";
+            document.getElementById('save-btn').disabled = true;
 
             let imageData = "https://via.placeholder.com/150?text=No+Image";
             if (fileInput.files && fileInput.files[0]) {
                 imageData = await readFileAsBase64(fileInput.files[0]);
             }
 
+            // 1. 最新のデータを取得
+            allGoods = getSavedData();
+            // 2. 新しいデータを追加
             allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageData, count });
-            saveToStorage();
-            renderItems();
+            // 3. 保存
+            localStorage.setItem('myGoodsData', JSON.stringify(allGoods));
+            
+            document.getElementById('save-btn').innerText = "保存する";
+            document.getElementById('save-btn').disabled = false;
+            
             closeAddForm();
+            renderItems();
         }
 
         function changeCount(id, delta) {
+            allGoods = getSavedData();
             const item = allGoods.find(g => g.id === id);
             if (item) {
                 item.count = Math.max(0, item.count + delta);
-                saveToStorage();
+                localStorage.setItem('myGoodsData', JSON.stringify(allGoods));
                 renderItems();
             }
         }
 
         function deleteItem(id) {
             if(!confirm("削除しますか？")) return;
-            allGoods = allGoods.filter(g => g.id !== id);
-            saveToStorage();
+            allGoods = getSavedData().filter(g => g.id !== id);
+            localStorage.setItem('myGoodsData', JSON.stringify(allGoods));
             renderItems();
         }
 
-        function saveToStorage() {
-            localStorage.setItem('myGoodsData', JSON.stringify(allGoods));
-        }
-
         function renderItems() {
+            allGoods = getSavedData(); // 描画のたびに必ず最新データを読み込む
             const listArea = document.getElementById('goods-list');
             const searchText = document.getElementById('search-input').value.toLowerCase();
             listArea.innerHTML = "";
 
             const categoryItems = allGoods.filter(item => item.category === currentCategory);
-            const total = categoryItems.reduce((sum, item) => sum + item.count, 0);
-            document.getElementById('total-count-number').innerText = total;
+            document.getElementById('total-count-number').innerText = categoryItems.reduce((sum, i) => sum + i.count, 0);
 
             categoryItems.filter(item => item.name.toLowerCase().includes(searchText)).forEach(item => {
                 const card = document.createElement('div');
@@ -179,7 +180,7 @@
         }
 
         function exportData() {
-            const blob = new Blob([JSON.stringify(allGoods)], {type: 'application/json'});
+            const blob = new Blob([JSON.stringify(getSavedData())], {type: 'application/json'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `my_goods_backup.json`;
@@ -189,9 +190,8 @@
         function importData(event) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                allGoods = JSON.parse(e.target.result);
-                saveToStorage();
-                alert("復元完了！");
+                localStorage.setItem('myGoodsData', e.target.result);
+                alert("復元しました！");
                 location.reload();
             };
             reader.readAsText(event.target.files[0]);
