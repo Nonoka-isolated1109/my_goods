@@ -6,10 +6,9 @@
     <title>私のグッズ管理アプリ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 紫ベースのカスタムスタイル */
         .goods-card { transition: transform 0.2s; }
         .goods-card:hover { transform: scale(1.02); }
-        body { background-color: #f5f3ff; } /* 非常に薄い紫 */
+        body { background-color: #f5f3ff; }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -44,10 +43,17 @@
         </div>
 
         <div id="items-view" class="hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-2">
                 <button onclick="backToCategories()" class="text-purple-600 font-bold">← 戻る</button>
                 <h2 id="current-category-name" class="text-2xl font-bold text-gray-800 border-b-4 border-purple-400 pb-1"></h2>
                 <button onclick="toggleAddForm()" class="bg-purple-600 text-white px-4 py-2 rounded-full shadow-lg font-bold hover:bg-purple-700">+ 追加</button>
+            </div>
+
+            <div class="text-center mb-6">
+                <div class="inline-block bg-purple-600 text-white px-6 py-2 rounded-full shadow-md">
+                    <span id="total-count-label" class="text-sm font-bold"></span>の総数：
+                    <span id="total-count-number" class="text-xl font-black">0</span> 個
+                </div>
             </div>
 
             <div id="add-form" class="hidden bg-white p-6 rounded-xl shadow-inner mb-8 border-2 border-dashed border-purple-300">
@@ -57,37 +63,33 @@
                         <label class="text-xs text-purple-600 font-bold ml-1">グッズ名</label>
                         <input type="text" id="new-name" placeholder="キャラクター名など" class="w-full p-2 border border-purple-200 rounded focus:border-purple-500 outline-none">
                     </div>
-                    
                     <div>
                         <label class="text-xs text-purple-600 font-bold ml-1">現在の所持数</label>
                         <input type="number" id="new-count" value="1" min="0" class="w-full p-2 border border-purple-200 rounded focus:border-purple-500 outline-none">
                     </div>
-
                     <div>
                         <label class="text-xs text-purple-600 font-bold ml-1">画像を選択</label>
                         <input type="file" id="new-image" accept="image/*" class="w-full p-2 border border-purple-100 rounded text-sm text-gray-500">
                     </div>
-                    <button onclick="addItem()" class="w-full bg-purple-600 text-white p-3 rounded-lg font-bold shadow-md hover:bg-purple-700 active:scale-95 transition-all">コレクションに加える</button>
+                    <button onclick="addItem()" class="w-full bg-purple-600 text-white p-3 rounded-lg font-bold shadow-md hover:bg-purple-700">コレクションに加える</button>
                 </div>
             </div>
 
-            <div id="goods-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                </div>
+            <div id="goods-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
         </div>
-
     </main>
 
     <script>
         let allGoods = JSON.parse(localStorage.getItem('myGoodsData')) || [];
         let currentCategory = "";
 
-        // カテゴリー選択
         function selectCategory(cat) {
             currentCategory = cat;
             document.getElementById('category-view').classList.add('hidden');
             document.getElementById('items-view').classList.remove('hidden');
             document.getElementById('search-container').classList.remove('hidden');
             document.getElementById('current-category-name').innerText = cat;
+            document.getElementById('total-count-label').innerText = cat;
             renderItems();
         }
 
@@ -99,16 +101,13 @@
         }
 
         function toggleAddForm() {
-            const form = document.getElementById('add-form');
-            form.classList.toggle('hidden');
+            document.getElementById('add-form').classList.toggle('hidden');
         }
 
-        // グッズ追加
         async function addItem() {
             const name = document.getElementById('new-name').value;
             const initialCount = parseInt(document.getElementById('new-count').value) || 0;
             const fileInput = document.getElementById('new-image');
-            
             if (!name) return alert("名前を入力してください");
 
             let imageData = "https://via.placeholder.com/150?text=No+Image";
@@ -116,26 +115,15 @@
                 imageData = await readFileAsBase64(fileInput.files[0]);
             }
 
-            const newItem = {
-                id: Date.now(),
-                category: currentCategory,
-                name: name,
-                image: imageData,
-                count: initialCount
-            };
-
-            allGoods.push(newItem);
+            allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageData, count: initialCount });
             saveData();
             renderItems();
-            
-            // リセット
             document.getElementById('new-name').value = "";
             document.getElementById('new-count').value = "1";
             document.getElementById('new-image').value = "";
             toggleAddForm();
         }
 
-        // 個数変更
         function changeCount(id, delta) {
             const item = allGoods.find(g => g.id === id);
             if (item) {
@@ -146,28 +134,32 @@
         }
 
         function deleteItem(id) {
-            if(confirm("このアイテムを削除してもよろしいですか？")) {
+            if(confirm("削除しますか？")) {
                 allGoods = allGoods.filter(g => g.id !== id);
                 saveData();
                 renderItems();
             }
         }
 
-        function saveData() {
-            localStorage.setItem('myGoodsData', JSON.stringify(allGoods));
-        }
+        function saveData() { localStorage.setItem('myGoodsData', JSON.stringify(allGoods)); }
 
+        // 描画 & 総数計算
         function renderItems() {
             const listArea = document.getElementById('goods-list');
             const searchText = document.getElementById('search-input').value.toLowerCase();
             listArea.innerHTML = "";
 
-            const filteredItems = allGoods.filter(item => 
-                item.category === currentCategory && 
-                item.name.toLowerCase().includes(searchText)
-            );
+            // カテゴリー内のアイテムを抽出
+            const categoryItems = allGoods.filter(item => item.category === currentCategory);
+            
+            // 【新機能】総個数の計算
+            const total = categoryItems.reduce((sum, item) => sum + item.count, 0);
+            document.getElementById('total-count-number').innerText = total;
 
-            filteredItems.forEach(item => {
+            // 検索フィルタリング
+            const filtered = categoryItems.filter(item => item.name.toLowerCase().includes(searchText));
+
+            filtered.forEach(item => {
                 const card = document.createElement('div');
                 card.className = "goods-card bg-white rounded-2xl shadow-md overflow-hidden flex items-center p-4 border border-purple-100";
                 card.innerHTML = `
@@ -175,9 +167,9 @@
                     <div class="flex-grow">
                         <h4 class="font-bold text-gray-800 mb-2">${item.name}</h4>
                         <div class="flex items-center gap-4">
-                            <button onclick="changeCount(${item.id}, -1)" class="w-10 h-10 rounded-full bg-gray-100 border text-gray-600 flex items-center justify-center font-bold active:bg-gray-200">-</button>
+                            <button onclick="changeCount(${item.id}, -1)" class="w-10 h-10 rounded-full bg-gray-100 border text-gray-600 flex items-center justify-center font-bold">-</button>
                             <span class="text-xl font-bold text-purple-700">${item.count}</span>
-                            <button onclick="changeCount(${item.id}, 1)" class="w-10 h-10 rounded-full bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold active:bg-purple-200">+</button>
+                            <button onclick="changeCount(${item.id}, 1)" class="w-10 h-10 rounded-full bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold">+</button>
                         </div>
                     </div>
                     <button onclick="deleteItem(${item.id})" class="text-gray-300 text-[10px] ml-2 self-start">削除</button>
@@ -194,27 +186,17 @@
             });
         }
 
-        // バックアップ機能
         function exportData() {
             const blob = new Blob([JSON.stringify(allGoods)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `my_goods_backup_${new Date().toLocaleDateString()}.json`;
-            a.click();
+            const a = document.createElement('a'); a.href = url;
+            a.download = `backup_${new Date().toLocaleDateString()}.json`; a.click();
         }
 
         function importData(event) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                try {
-                    allGoods = JSON.parse(e.target.result);
-                    saveData();
-                    alert("データを復元しました！");
-                    location.reload();
-                } catch (err) {
-                    alert("ファイルの読み込みに失敗しました。");
-                }
+                allGoods = JSON.parse(e.target.result); saveData(); location.reload();
             };
             reader.readAsText(event.target.files[0]);
         }
