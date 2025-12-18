@@ -46,7 +46,7 @@
             <div class="flex justify-between items-center mb-2">
                 <button onclick="backToCategories()" class="text-purple-600 font-bold">← 戻る</button>
                 <h2 id="current-category-name" class="text-2xl font-bold text-gray-800 border-b-4 border-purple-400 pb-1"></h2>
-                <button onclick="toggleAddForm()" class="bg-purple-600 text-white px-4 py-2 rounded-full shadow-lg font-bold hover:bg-purple-700">+ 追加</button>
+                <button onclick="openAddForm()" class="bg-purple-600 text-white px-4 py-2 rounded-full shadow-lg font-bold hover:bg-purple-700">+ 追加</button>
             </div>
 
             <div class="text-center mb-6">
@@ -57,7 +57,10 @@
             </div>
 
             <div id="add-form" class="hidden bg-white p-6 rounded-xl shadow-inner mb-8 border-2 border-dashed border-purple-300">
-                <h3 class="font-bold text-purple-800 mb-4 text-center">新しいグッズを登録</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-purple-800">新しいグッズを登録</h3>
+                    <button onclick="closeAddForm()" class="text-gray-400 text-sm">キャンセル</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="text-xs text-purple-600 font-bold ml-1">グッズ名</label>
@@ -97,17 +100,27 @@
             document.getElementById('category-view').classList.remove('hidden');
             document.getElementById('items-view').classList.add('hidden');
             document.getElementById('search-container').classList.add('hidden');
-            document.getElementById('add-form').classList.add('hidden');
+            closeAddForm();
         }
 
-        function toggleAddForm() {
-            document.getElementById('add-form').classList.toggle('hidden');
+        // 追加フォームを開く（中身をリセット）
+        function openAddForm() {
+            document.getElementById('new-name').value = "";
+            document.getElementById('new-count').value = "1";
+            document.getElementById('new-image').value = "";
+            document.getElementById('add-form').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // フォームまでスクロール
+        }
+
+        function closeAddForm() {
+            document.getElementById('add-form').classList.add('hidden');
         }
 
         async function addItem() {
             const name = document.getElementById('new-name').value;
             const initialCount = parseInt(document.getElementById('new-count').value) || 0;
             const fileInput = document.getElementById('new-image');
+            
             if (!name) return alert("名前を入力してください");
 
             let imageData = "https://via.placeholder.com/150?text=No+Image";
@@ -118,10 +131,9 @@
             allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageData, count: initialCount });
             saveData();
             renderItems();
-            document.getElementById('new-name').value = "";
-            document.getElementById('new-count').value = "1";
-            document.getElementById('new-image').value = "";
-            toggleAddForm();
+            
+            // 追加したらフォームを閉じる
+            closeAddForm();
         }
 
         function changeCount(id, delta) {
@@ -143,20 +155,15 @@
 
         function saveData() { localStorage.setItem('myGoodsData', JSON.stringify(allGoods)); }
 
-        // 描画 & 総数計算
         function renderItems() {
             const listArea = document.getElementById('goods-list');
             const searchText = document.getElementById('search-input').value.toLowerCase();
             listArea.innerHTML = "";
 
-            // カテゴリー内のアイテムを抽出
             const categoryItems = allGoods.filter(item => item.category === currentCategory);
-            
-            // 【新機能】総個数の計算
             const total = categoryItems.reduce((sum, item) => sum + item.count, 0);
             document.getElementById('total-count-number').innerText = total;
 
-            // 検索フィルタリング
             const filtered = categoryItems.filter(item => item.name.toLowerCase().includes(searchText));
 
             filtered.forEach(item => {
