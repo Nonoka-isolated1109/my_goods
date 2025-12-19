@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Goods Manager (API版)</title>
+    <title>My Goods Manager (Cloud Sync)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #f8f6ff; }
-        .purple-btn { background-color: #7c3aed; color: white; font-weight: bold; border-radius: 9999px; transition: all 0.2s; border: none; cursor: pointer; }
-        .purple-btn:hover { background-color: #6d28d9; }
+        body { background-color: #f8f6ff; font-family: sans-serif; }
+        .purple-btn { background-color: #7c3aed; color: white; font-weight: bold; border-radius: 9999px; padding: 0.6rem 1.5rem; transition: 0.2s; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .purple-btn:hover { background-color: #6d28d9; transform: translateY(-1px); }
         .card { background-color: white; border: 1px solid #e9d5ff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        .gallery-img { width: 80px; height: 80px; object-fit: cover; border-radius: 0.5rem; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
-        .gallery-img:hover { transform: scale(1.05); }
-        .selected-img { border-color: #7c3aed !important; box-shadow: 0 0 10px rgba(124, 58, 237, 0.3); }
+        .gallery-img { width: 90px; height: 90px; object-fit: cover; border-radius: 0.5rem; cursor: pointer; border: 3px solid transparent; transition: 0.2s; background-color: #eee; }
+        .gallery-img:hover { border-color: #ddd; }
+        .selected-img { border-color: #7c3aed !important; box-shadow: 0 0 10px rgba(124, 58, 237, 0.4); }
+        /* ローディングアニメーション */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #7c3aed; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -23,34 +26,46 @@
 
     <main class="max-w-4xl mx-auto p-4">
         <div id="category-view" class="grid grid-cols-2 gap-4 mt-8">
-            <button onclick="selectCategory('缶バッジ')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50">缶バッジ</button>
-            <button onclick="selectCategory('アクスタ')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50">アクスタ</button>
-            <button onclick="selectCategory('紙類')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50">紙類</button>
-            <button onclick="selectCategory('その他')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50">その他</button>
+            <button onclick="selectCategory('缶バッジ')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50 transition">缶バッジ</button>
+            <button onclick="selectCategory('アクスタ')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50 transition">アクスタ</button>
+            <button onclick="selectCategory('紙類')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50 transition">紙類</button>
+            <button onclick="selectCategory('その他')" class="card p-10 text-xl font-bold text-purple-800 hover:bg-purple-50 transition">その他</button>
         </div>
 
         <div id="items-view" class="hidden">
             <div class="flex justify-between items-center mb-6">
-                <button onclick="backToCategories()" class="text-purple-600 font-bold">← 戻る</button>
+                <button onclick="backToCategories()" class="text-purple-600 font-bold hover:underline">← 戻る</button>
                 <h2 id="current-category-name" class="text-2xl font-bold text-gray-800"></h2>
-                <button onclick="openAddForm()" class="purple-btn px-6 py-2">+ 追加</button>
+                <button onclick="openAddForm()" class="purple-btn">+ 追加</button>
             </div>
 
             <div id="add-form" class="hidden card p-6 mb-8 border-2 border-purple-300">
                 <div class="space-y-4">
-                    <input type="text" id="new-name" placeholder="グッズ名を入力" class="w-full p-3 border border-purple-200 rounded-xl outline-none">
-                    <input type="number" id="new-count" value="1" min="0" class="w-full p-3 border border-purple-200 rounded-xl">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">グッズの名前</label>
+                        <input type="text" id="new-name" placeholder="例：〇〇缶バッジ A" class="w-full p-3 border border-purple-200 rounded-xl outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">個数</label>
+                        <input type="number" id="new-count" value="1" min="0" class="w-full p-3 border border-purple-200 rounded-xl">
+                    </div>
                     
                     <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                        <label class="block text-xs font-bold text-purple-700 mb-3">ドライブの画像を選択してください</label>
-                        <div id="cloud-gallery" class="flex flex-wrap gap-2 mb-2 p-2 bg-white rounded-lg min-h-[100px] max-h-[300px] overflow-y-auto border border-dashed border-purple-200">
-                            <p class="text-xs text-gray-400 p-4">画像を読み込み中...</p>
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="text-xs font-bold text-purple-700">Drive内の画像を選択</label>
+                            <button onclick="fetchCloudImages()" class="text-[10px] text-purple-500 underline">再読み込み</button>
+                        </div>
+                        
+                        <div id="cloud-gallery" class="flex flex-wrap gap-2 p-2 bg-white rounded-lg min-h-[120px] max-h-[300px] overflow-y-auto border border-dashed border-purple-200 shadow-inner">
+                            <p class="text-xs text-gray-400 p-4">読み込み中...</p>
                         </div>
                         <input type="hidden" id="new-image-url">
                     </div>
 
-                    <button id="save-btn" onclick="addItem()" class="w-full purple-btn py-4 text-lg">保存する</button>
-                    <button onclick="closeAddForm()" class="w-full text-gray-400 text-sm">キャンセル</button>
+                    <div class="pt-2">
+                        <button onclick="addItem()" class="w-full purple-btn py-4 text-lg">保存する</button>
+                        <button onclick="closeAddForm()" class="w-full text-gray-400 text-sm mt-3">キャンセル</button>
+                    </div>
                 </div>
             </div>
 
@@ -59,13 +74,12 @@
     </main>
 
     <script>
-// ↓ ここが今教えてくれたURLと同じになっている必要があります
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyBVbNz05TP2-dDJvy_qdvDhzLyK37DhuBnSPNjyij-B-ilZPsv4ZJCf2_PK43o5EuV5A/exec';
+        // あなたの最新GAS URL
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyRbZxDJm1JUsXLKuZZS8tnrspiHlGnNXkaYBJYbg2bPc50GcY1PcYjPbNIvddQk4ZF0g/exec';
 
-        let allGoods = JSON.parse(localStorage.getItem('myGoodsApiStorage') || '[]');
+        let allGoods = JSON.parse(localStorage.getItem('myGoodsCloudSyncStorage') || '[]');
         let currentCategory = "";
 
-        // カテゴリー選択
         function selectCategory(cat) {
             currentCategory = cat;
             document.getElementById('category-view').classList.add('hidden');
@@ -77,9 +91,9 @@
         function backToCategories() {
             document.getElementById('category-view').classList.remove('hidden');
             document.getElementById('items-view').classList.add('hidden');
+            closeAddForm();
         }
 
-        // 追加フォームを開く（同時にドライブの画像を最新に更新する）
         function openAddForm() {
             document.getElementById('new-name').value = "";
             document.getElementById('new-count').value = "1";
@@ -88,36 +102,37 @@
             fetchCloudImages();
         }
 
-        function closeAddForm() { document.getElementById('add-form').classList.add('hidden'); }
+        function closeAddForm() {
+            document.getElementById('add-form').classList.add('hidden');
+        }
 
-        // GASから画像リストを取得する
         async function fetchCloudImages() {
             const gallery = document.getElementById('cloud-gallery');
+            gallery.innerHTML = '<div class="w-full text-center p-8"><div class="loader"></div><p class="text-xs text-gray-400 mt-2">Driveから取得中...</p></div>';
+            
             try {
                 const response = await fetch(GAS_URL);
                 const images = await response.json();
                 
                 if (images.length === 0) {
-                    gallery.innerHTML = '<p class="text-xs text-gray-400 p-4">フォルダに画像がありません。Driveに画像を追加してください。</p>';
+                    gallery.innerHTML = '<p class="text-xs text-gray-400 p-4 w-full text-center">フォルダに画像が見つかりません。Driveに画像を入れてください。</p>';
                     return;
                 }
 
                 gallery.innerHTML = images.map(img => `
-                    <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" title="${img.name}">
+                    <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" title="${img.name}" onerror="this.src='https://via.placeholder.com/150?text=Error'">
                 `).join('');
             } catch (e) {
-                gallery.innerHTML = '<p class="text-xs text-red-400 p-4">画像の読み込みに失敗しました。</p>';
+                gallery.innerHTML = '<p class="text-xs text-red-400 p-4 w-full text-center">取得に失敗しました。<br>GASの公開設定が「全員(Anyone)」になっているか確認してください。</p>';
             }
         }
 
-        // ギャラリーから画像を選択
         function selectImage(el, url) {
             document.getElementById('new-image-url').value = url;
             document.querySelectorAll('.gallery-img').forEach(img => img.classList.remove('selected-img'));
             el.classList.add('selected-img');
         }
 
-        // 保存処理
         function addItem() {
             const name = document.getElementById('new-name').value.trim();
             const count = parseInt(document.getElementById('new-count').value) || 0;
@@ -127,7 +142,7 @@
             if (!imageUrl) return alert("画像を選択してください");
 
             allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageUrl, count });
-            localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
+            localStorage.setItem('myGoodsCloudSyncStorage', JSON.stringify(allGoods));
             
             renderItems();
             closeAddForm();
@@ -137,15 +152,15 @@
             const item = allGoods.find(g => g.id === id);
             if (item) {
                 item.count = Math.max(0, item.count + delta);
-                localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
+                localStorage.setItem('myGoodsCloudSyncStorage', JSON.stringify(allGoods));
                 renderItems();
             }
         }
 
         function deleteItem(id) {
-            if(!confirm("削除しますか？")) return;
+            if(!confirm("このアイテムを削除してもよろしいですか？")) return;
             allGoods = allGoods.filter(g => g.id !== id);
-            localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
+            localStorage.setItem('myGoodsCloudSyncStorage', JSON.stringify(allGoods));
             renderItems();
         }
 
@@ -158,16 +173,16 @@
                 const div = document.createElement('div');
                 div.className = "card p-4 flex items-center gap-4";
                 div.innerHTML = `
-                    <img src="${item.image}" class="w-20 h-20 object-cover rounded-lg border">
+                    <img src="${item.image}" class="w-20 h-20 object-cover rounded-lg border shadow-sm" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
                     <div class="flex-grow">
                         <h4 class="font-bold text-gray-800">${item.name}</h4>
                         <div class="flex items-center gap-4 mt-2">
-                            <button onclick="changeCount(${item.id}, -1)" class="w-8 h-8 rounded-full border border-purple-200 font-bold">-</button>
+                            <button onclick="changeCount(${item.id}, -1)" class="w-8 h-8 rounded-full border border-purple-200 font-bold hover:bg-gray-100">-</button>
                             <span class="text-lg font-black text-purple-700">${item.count}</span>
-                            <button onclick="changeCount(${item.id}, 1)" class="w-8 h-8 rounded-full bg-purple-100 border border-purple-300 font-bold">+</button>
+                            <button onclick="changeCount(${item.id}, 1)" class="w-8 h-8 rounded-full bg-purple-100 border border-purple-300 font-bold hover:bg-purple-200">+</button>
                         </div>
                     </div>
-                    <button onclick="deleteItem(${item.id})" class="text-xs text-red-300 self-start">削除</button>
+                    <button onclick="deleteItem(${item.id})" class="text-xs text-red-300 hover:text-red-500 self-start transition">削除</button>
                 `;
                 listArea.appendChild(div);
             });
