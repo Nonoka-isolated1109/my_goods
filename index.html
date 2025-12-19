@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>私のグッズ管理アプリ</title>
+    <title>グッズ管理</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f5f3ff; -webkit-tap-highlight-color: transparent; }
@@ -63,13 +63,13 @@
     </main>
 
     <script>
-        // 【最重要】データを読み込む関数
+        // データ読み込み
         function getSavedData() {
             const data = localStorage.getItem('myGoodsData');
             return data ? JSON.parse(data) : [];
         }
 
-        // ページを開いた瞬間に一度だけデータを取得
+        // データを取得
         let allGoods = getSavedData();
         let currentCategory = "";
 
@@ -112,6 +112,7 @@
                 imageData = await readFileAsBase64(fileInput.files[0]);
             }
 
+            //localstrageの処理
             // 1. 最新のデータを取得
             allGoods = getSavedData();
             // 2. 新しいデータを追加
@@ -144,7 +145,7 @@
         }
 
         function renderItems() {
-            allGoods = getSavedData(); // 描画のたびに必ず最新データを読み込む
+            allGoods = getSavedData(); 
             const listArea = document.getElementById('goods-list');
             const searchText = document.getElementById('search-input').value.toLowerCase();
             listArea.innerHTML = "";
