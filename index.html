@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Goods Manager (Cloud Link版)</title>
+    <title>My Goods Manager (API版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f8f6ff; }
         .purple-btn { background-color: #7c3aed; color: white; font-weight: bold; border-radius: 9999px; transition: all 0.2s; border: none; cursor: pointer; }
         .purple-btn:hover { background-color: #6d28d9; }
         .card { background-color: white; border: 1px solid #e9d5ff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .gallery-img { width: 80px; height: 80px; object-fit: cover; border-radius: 0.5rem; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
+        .gallery-img:hover { transform: scale(1.05); }
+        .selected-img { border-color: #7c3aed !important; box-shadow: 0 0 10px rgba(124, 58, 237, 0.3); }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -35,13 +38,15 @@
 
             <div id="add-form" class="hidden card p-6 mb-8 border-2 border-purple-300">
                 <div class="space-y-4">
-                    <input type="text" id="new-name" placeholder="グッズ名" class="w-full p-3 border border-purple-200 rounded-xl outline-none">
+                    <input type="text" id="new-name" placeholder="グッズ名を入力" class="w-full p-3 border border-purple-200 rounded-xl outline-none">
                     <input type="number" id="new-count" value="1" min="0" class="w-full p-3 border border-purple-200 rounded-xl">
                     
                     <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                        <label class="block text-xs font-bold text-purple-700 mb-2">Google Driveの「共有リンク」を貼り付け</label>
-                        <input type="text" id="new-image-url" placeholder="https://drive.google.com/file/d/..." class="w-full p-3 border border-white rounded-lg text-sm outline-none">
-                        <p class="text-[10px] text-purple-400 mt-2">※画像は「リンクを知っている全員が閲覧可能」にしてから貼ってください</p>
+                        <label class="block text-xs font-bold text-purple-700 mb-3">ドライブの画像を選択してください</label>
+                        <div id="cloud-gallery" class="flex flex-wrap gap-2 mb-2 p-2 bg-white rounded-lg min-h-[100px] max-h-[300px] overflow-y-auto border border-dashed border-purple-200">
+                            <p class="text-xs text-gray-400 p-4">画像を読み込み中...</p>
+                        </div>
+                        <input type="hidden" id="new-image-url">
                     </div>
 
                     <button id="save-btn" onclick="addItem()" class="w-full purple-btn py-4 text-lg">保存する</button>
@@ -54,25 +59,13 @@
     </main>
 
     <script>
-        let allGoods = [];
-        try {
-            const saved = localStorage.getItem('myGoodsCloudStorage');
-            if (saved) allGoods = JSON.parse(saved);
-        } catch (e) { allGoods = []; }
+        // 先ほど作成したGASのURL
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyFWLHnytMK6A4oC2_XAXDn4A11z4_l9Z-Op8rnt-qPvNlcBmQtkhC5-pORr4nIDbNQ9g/exec';
 
+        let allGoods = JSON.parse(localStorage.getItem('myGoodsApiStorage') || '[]');
         let currentCategory = "";
 
-        // Google Driveの共有URLを表示用URLに変換する魔法の関数
-        function convertDriveLink(url) {
-            if (!url) return "https://via.placeholder.com/150?text=No+Image";
-            // 共有リンクのID部分を抽出
-            const match = url.match(/\/d\/(.+?)\/(view|edit|usp)/) || url.match(/id=(.+?)(&|$)/);
-            if (match && match[1]) {
-                return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-            }
-            return url; // すでに直リンクや他のURLの場合はそのまま
-        }
-
+        // カテゴリー選択
         function selectCategory(cat) {
             currentCategory = cat;
             document.getElementById('category-view').classList.add('hidden');
@@ -86,34 +79,56 @@
             document.getElementById('items-view').classList.add('hidden');
         }
 
+        // 追加フォームを開く（同時にドライブの画像を最新に更新する）
         function openAddForm() {
             document.getElementById('new-name').value = "";
             document.getElementById('new-count').value = "1";
             document.getElementById('new-image-url').value = "";
             document.getElementById('add-form').classList.remove('hidden');
+            fetchCloudImages();
         }
 
         function closeAddForm() { document.getElementById('add-form').classList.add('hidden'); }
 
+        // GASから画像リストを取得する
+        async function fetchCloudImages() {
+            const gallery = document.getElementById('cloud-gallery');
+            try {
+                const response = await fetch(GAS_URL);
+                const images = await response.json();
+                
+                if (images.length === 0) {
+                    gallery.innerHTML = '<p class="text-xs text-gray-400 p-4">フォルダに画像がありません。Driveに画像を追加してください。</p>';
+                    return;
+                }
+
+                gallery.innerHTML = images.map(img => `
+                    <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" title="${img.name}">
+                `).join('');
+            } catch (e) {
+                gallery.innerHTML = '<p class="text-xs text-red-400 p-4">画像の読み込みに失敗しました。</p>';
+            }
+        }
+
+        // ギャラリーから画像を選択
+        function selectImage(el, url) {
+            document.getElementById('new-image-url').value = url;
+            document.querySelectorAll('.gallery-img').forEach(img => img.classList.remove('selected-img'));
+            el.classList.add('selected-img');
+        }
+
+        // 保存処理
         function addItem() {
             const name = document.getElementById('new-name').value.trim();
             const count = parseInt(document.getElementById('new-count').value) || 0;
-            const urlInput = document.getElementById('new-image-url').value.trim();
+            const imageUrl = document.getElementById('new-image-url').value;
 
             if (!name) return alert("名前を入力してください");
+            if (!imageUrl) return alert("画像を選択してください");
 
-            // URLを変換して保存
-            const finalImageUrl = convertDriveLink(urlInput);
+            allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageUrl, count });
+            localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
             
-            allGoods.push({
-                id: Date.now(),
-                category: currentCategory,
-                name: name,
-                image: finalImageUrl,
-                count: count
-            });
-
-            localStorage.setItem('myGoodsCloudStorage', JSON.stringify(allGoods));
             renderItems();
             closeAddForm();
         }
@@ -122,7 +137,7 @@
             const item = allGoods.find(g => g.id === id);
             if (item) {
                 item.count = Math.max(0, item.count + delta);
-                localStorage.setItem('myGoodsCloudStorage', JSON.stringify(allGoods));
+                localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
                 renderItems();
             }
         }
@@ -130,7 +145,7 @@
         function deleteItem(id) {
             if(!confirm("削除しますか？")) return;
             allGoods = allGoods.filter(g => g.id !== id);
-            localStorage.setItem('myGoodsCloudStorage', JSON.stringify(allGoods));
+            localStorage.setItem('myGoodsApiStorage', JSON.stringify(allGoods));
             renderItems();
         }
 
@@ -143,7 +158,7 @@
                 const div = document.createElement('div');
                 div.className = "card p-4 flex items-center gap-4";
                 div.innerHTML = `
-                    <img src="${item.image}" class="w-20 h-20 object-cover rounded-lg border" onerror="this.src='https://via.placeholder.com/150?text=Error'">
+                    <img src="${item.image}" class="w-20 h-20 object-cover rounded-lg border">
                     <div class="flex-grow">
                         <h4 class="font-bold text-gray-800">${item.name}</h4>
                         <div class="flex items-center gap-4 mt-2">
