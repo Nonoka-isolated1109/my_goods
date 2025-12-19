@@ -17,6 +17,8 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #settings-modal { background-color: rgba(0,0,0,0.5); }
         .badge { background: #7c3aed; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; margin-left: 5px; vertical-align: middle; }
+        .search-input { width: 100%; padding: 0.6rem 1rem; border: 1px solid #e9d5ff; border-radius: 999px; outline: none; transition: 0.2s; font-size: 0.9rem; }
+        .search-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1); }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -50,10 +52,14 @@
         </div>
 
         <div id="items-view" class="hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-4">
                 <button onclick="backToCategories()" class="text-purple-600 font-bold">← 戻る</button>
                 <h2 class="text-xl font-bold text-gray-800"><span id="current-category-name"></span><span id="current-category-total" class="badge">0</span></h2>
                 <button onclick="openAddForm()" class="purple-btn px-4 py-2 text-sm">+ 追加</button>
+            </div>
+
+            <div class="mb-4">
+                <input type="text" id="search-box" placeholder="名前で検索..." class="search-input" oninput="renderItems()">
             </div>
 
             <div id="add-form" class="hidden card p-5 mb-8 border-2 border-purple-300">
@@ -124,6 +130,7 @@
 
         function selectCategory(cat) {
             currentCategory = cat;
+            document.getElementById('search-box').value = ""; // 検索ワードリセット
             document.getElementById('category-view').classList.add('hidden');
             document.getElementById('items-view').classList.remove('hidden');
             document.getElementById('current-category-name').innerText = cat;
@@ -182,12 +189,16 @@
 
         function renderItems() {
             const listArea = document.getElementById('goods-list');
+            const keyword = document.getElementById('search-box').value.toLowerCase();
             listArea.innerHTML = "";
+            
             const catItems = allGoods.filter(i => i.category === currentCategory);
+            const filteredItems = catItems.filter(i => i.name.toLowerCase().includes(keyword));
+            
             const total = catItems.reduce((sum, item) => sum + (parseInt(item.count) || 0), 0);
             document.getElementById('current-category-total').innerText = total;
 
-            catItems.forEach(item => {
+            filteredItems.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "card p-3 flex items-center gap-4";
                 div.innerHTML = `<img src="${item.image}" class="w-16 h-16 object-cover rounded-lg border"><div class="flex-grow"><h4 class="font-bold text-sm text-gray-800">${item.name}</h4><div class="flex items-center gap-3 mt-1"><button onclick="changeCount(${item.id}, -1)" class="w-7 h-7 rounded-full border">-</button><span class="font-black text-purple-700">${item.count}</span><button onclick="changeCount(${item.id}, 1)" class="w-7 h-7 rounded-full bg-purple-100 border">+</button></div></div><button onclick="deleteItem(${item.id})" class="text-[10px] text-red-300">削除</button>`;
