@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Goods Manager (Speed Ver.)</title>
+    <title>My Goods Manager (Full Ver.)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f8f6ff; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -14,12 +14,13 @@
         .selected-img { border-color: #7c3aed !important; background-color: #ede9fe; }
         .loader { border: 2px solid #f3f3f3; border-top: 2px solid #7c3aed; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #settings-modal { background-color: rgba(0,0,0,0.5); }
     </style>
 </head>
 <body class="min-h-screen pb-20">
 
     <header class="bg-white shadow-sm p-4 sticky top-0 z-50 border-b border-purple-200 flex justify-between items-center">
-        <div class="w-10"></div>
+        <button onclick="toggleSettings()" class="text-xl w-10 text-left">⚙️</button>
         <h1 class="text-xl font-black text-purple-700 cursor-pointer" onclick="location.reload()">My Collection</h1>
         <div id="global-loader" class="w-10 flex justify-center items-center">
             <div class="loader hidden"></div>
@@ -48,12 +49,10 @@
                     
                     <div class="bg-purple-50 p-3 rounded-xl">
                         <div class="flex justify-between items-center mb-2">
-                            <label class="text-[10px] font-bold text-purple-700 uppercase">画像を選択</label>
-                            <button onclick="fetchCloudImages(true)" class="text-[10px] text-purple-400">ドライブを更新 ↻</button>
+                            <label class="text-[10px] font-bold text-purple-700">ドライブの画像を選択</label>
+                            <button onclick="fetchCloudImages(true)" class="text-[10px] text-purple-400">更新 ↻</button>
                         </div>
-                        
-                        <div id="cloud-gallery" class="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto">
-                            </div>
+                        <div id="cloud-gallery" class="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto"></div>
                         <input type="hidden" id="new-image-url">
                     </div>
 
@@ -61,51 +60,53 @@
                     <button onclick="closeAddForm()" class="w-full text-gray-400 text-xs">キャンセル</button>
                 </div>
             </div>
-
             <div id="goods-list" class="grid grid-cols-1 gap-3"></div>
         </div>
     </main>
+
+    <div id="settings-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">データのバックアップ</h3>
+            <div class="space-y-3">
+                <button onclick="exportData()" class="w-full p-4 bg-purple-50 text-purple-700 font-bold rounded-xl border border-purple-100 text-left">
+                    📤 データを保存する (Export)
+                    <p class="text-[10px] font-normal text-purple-400">現在のデータをファイルとして保存します</p>
+                </button>
+                <label class="w-full p-4 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 block cursor-pointer">
+                    📥 データを読み込む (Import)
+                    <p class="text-[10px] font-normal text-blue-400">保存したファイルから復元します</p>
+                    <input type="file" id="import-file" class="hidden" onchange="importData(event)">
+                </label>
+            </div>
+            <button onclick="toggleSettings()" class="w-full mt-6 text-gray-400 text-sm">閉じる</button>
+        </div>
+    </div>
 
     <script>
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbyRbZxDJm1JUsXLKuZZS8tnrspiHlGnNXkaYBJYbg2bPc50GcY1PcYjPbNIvddQk4ZF0g/exec';
 
         let allGoods = JSON.parse(localStorage.getItem('myGoodsSpeedStorage') || '[]');
-        let cachedImages = []; // ドライブの画像を一時保存
+        let cachedImages = [];
         let currentCategory = "";
 
-        // アプリ起動時に画像をこっそり読み込んでおく
-        window.onload = () => {
-            fetchCloudImages(false);
-        };
+        window.onload = () => { fetchCloudImages(false); };
 
         async function fetchCloudImages(isManual) {
             const loader = document.querySelector('#global-loader .loader');
-            const gallery = document.getElementById('cloud-gallery');
-            
             loader.classList.remove('hidden');
-            if(isManual) gallery.innerHTML = '<p class="text-xs text-gray-400">更新中...</p>';
-
             try {
                 const response = await fetch(GAS_URL);
                 cachedImages = await response.json();
-                renderGallery();
-            } catch (e) {
-                console.error("Fetch error:", e);
-                if(isManual) alert("読み込みに失敗しました。電波の良い場所で試してください。");
-            } finally {
-                loader.classList.add('hidden');
-            }
+                if(isManual) renderGallery();
+            } catch (e) { console.error(e); } 
+            finally { loader.classList.add('hidden'); }
         }
 
         function renderGallery() {
             const gallery = document.getElementById('cloud-gallery');
-            if (cachedImages.length === 0) {
-                gallery.innerHTML = '<p class="text-xs text-gray-400 p-2">画像が見つかりません</p>';
-                return;
-            }
             gallery.innerHTML = cachedImages.map(img => `
                 <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" loading="lazy">
-            `).join('');
+            `).join('') || '<p class="text-xs p-2">画像なし</p>';
         }
 
         function selectCategory(cat) {
@@ -123,11 +124,8 @@
         }
 
         function openAddForm() {
-            document.getElementById('new-name').value = "";
-            document.getElementById('new-count').value = "1";
-            document.getElementById('new-image-url').value = "";
             document.getElementById('add-form').classList.remove('hidden');
-            renderGallery(); // 保存しておいた画像を即座に表示
+            renderGallery();
         }
 
         function closeAddForm() { document.getElementById('add-form').classList.add('hidden'); }
@@ -145,7 +143,7 @@
             if (!name || !imageUrl) return alert("名前と画像を選んでください");
 
             allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageUrl, count });
-            localStorage.setItem('myGoodsSpeedStorage', JSON.stringify(allGoods));
+            save();
             renderItems();
             closeAddForm();
         }
@@ -154,7 +152,7 @@
             const item = allGoods.find(g => g.id === id);
             if (item) {
                 item.count = Math.max(0, item.count + delta);
-                localStorage.setItem('myGoodsSpeedStorage', JSON.stringify(allGoods));
+                save();
                 renderItems();
             }
         }
@@ -162,15 +160,14 @@
         function deleteItem(id) {
             if(!confirm("削除しますか？")) return;
             allGoods = allGoods.filter(g => g.id !== id);
-            localStorage.setItem('myGoodsSpeedStorage', JSON.stringify(allGoods));
+            save();
             renderItems();
         }
 
         function renderItems() {
             const listArea = document.getElementById('goods-list');
             listArea.innerHTML = "";
-            const catItems = allGoods.filter(i => i.category === currentCategory);
-            catItems.forEach(item => {
+            allGoods.filter(i => i.category === currentCategory).forEach(item => {
                 const div = document.createElement('div');
                 div.className = "card p-3 flex items-center gap-4";
                 div.innerHTML = `
@@ -187,6 +184,42 @@
                 `;
                 listArea.appendChild(div);
             });
+        }
+
+        function save() { localStorage.setItem('myGoodsSpeedStorage', JSON.stringify(allGoods)); }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        // バックアップ書き出し
+        function exportData() {
+            const data = JSON.stringify(allGoods, null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `my_collection_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        // バックアップ読み込み
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (confirm("データを上書きして読み込みますか？")) {
+                        allGoods = imported;
+                        save();
+                        location.reload();
+                    }
+                } catch (err) { alert("正しいファイル形式ではありません"); }
+            };
+            reader.readAsText(file);
         }
     </script>
 </body>
