@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>グッズ数管理</title>
+    <title>My Goods Manager (Compact Ver.)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f8f6ff; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         .purple-btn { background-color: #7c3aed; color: white; font-weight: bold; border-radius: 9999px; padding: 0.6rem 1.5rem; transition: 0.2s; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
         .purple-btn:active { transform: scale(0.95); opacity: 0.8; }
         .card { background-color: white; border: 1px solid #e9d5ff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        .gallery-img { width: calc(33.33% - 8px); aspect-ratio: 1/1; object-fit: cover; border-radius: 0.5rem; cursor: pointer; border: 3px solid transparent; background-color: #f3f4f6; }
-        .selected-img { border-color: #7c3aed !important; background-color: #ede9fe; }
+        
+        /* 【修正】画像選択のタイルをより小さく（1行に4〜5枚程度） */
+        .gallery-img { 
+            width: calc(20% - 6px); /* 1行に5枚 */
+            aspect-ratio: 1/1; 
+            object-fit: cover; 
+            border-radius: 0.4rem; 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            background-color: #f3f4f6; 
+        }
+        /* スマホなどの幅が狭い画面では1行4枚にする */
+        @media (max-width: 480px) {
+            .gallery-img { width: calc(25% - 6px); }
+        }
+
+        .selected-img { border-color: #7c3aed !important; background-color: #ede9fe; transform: scale(0.9); }
         .loader { border: 2px solid #f3f3f3; border-top: 2px solid #7c3aed; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #settings-modal { background-color: rgba(0,0,0,0.5); }
@@ -49,15 +64,15 @@
                     
                     <div class="bg-purple-50 p-3 rounded-xl">
                         <div class="flex justify-between items-center mb-2">
-                            <label class="text-[10px] font-bold text-purple-700">ドライブの画像を選択</label>
+                            <label class="text-[10px] font-bold text-purple-700 uppercase">画像を選択</label>
                             <button onclick="fetchCloudImages(true)" class="text-[10px] text-purple-400">更新 ↻</button>
                         </div>
-                        <div id="cloud-gallery" class="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto"></div>
+                        <div id="cloud-gallery" class="flex flex-wrap gap-1.5 max-h-[250px] overflow-y-auto p-1"></div>
                         <input type="hidden" id="new-image-url">
                     </div>
 
                     <button onclick="addItem()" class="w-full purple-btn py-4">保存する</button>
-                    <button onclick="closeAddForm()" class="w-full text-gray-400 text-xs">キャンセル</button>
+                    <button onclick="closeAddForm()" class="w-full text-gray-400 text-xs text-center block">キャンセル</button>
                 </div>
             </div>
             <div id="goods-list" class="grid grid-cols-1 gap-3"></div>
@@ -66,15 +81,13 @@
 
     <div id="settings-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">データのバックアップ</h3>
+            <h3 class="text-lg font-bold text-gray-800 mb-4">設定・バックアップ</h3>
             <div class="space-y-3">
                 <button onclick="exportData()" class="w-full p-4 bg-purple-50 text-purple-700 font-bold rounded-xl border border-purple-100 text-left">
-                    📤 データを保存する (Export)
-                    <p class="text-[10px] font-normal text-purple-400">現在のデータをファイルとして保存します</p>
+                    📤 データを保存する
                 </button>
                 <label class="w-full p-4 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 block cursor-pointer">
-                    📥 データを読み込む (Import)
-                    <p class="text-[10px] font-normal text-blue-400">保存したファイルから復元します</p>
+                    📥 データを読み込む
                     <input type="file" id="import-file" class="hidden" onchange="importData(event)">
                 </label>
             </div>
@@ -84,7 +97,6 @@
 
     <script>
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbyRbZxDJm1JUsXLKuZZS8tnrspiHlGnNXkaYBJYbg2bPc50GcY1PcYjPbNIvddQk4ZF0g/exec';
-
         let allGoods = JSON.parse(localStorage.getItem('myGoodsSpeedStorage') || '[]');
         let cachedImages = [];
         let currentCategory = "";
@@ -106,7 +118,7 @@
             const gallery = document.getElementById('cloud-gallery');
             gallery.innerHTML = cachedImages.map(img => `
                 <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" loading="lazy">
-            `).join('') || '<p class="text-xs p-2">画像なし</p>';
+            `).join('') || '<p class="text-xs p-2">なし</p>';
         }
 
         function selectCategory(cat) {
@@ -124,6 +136,9 @@
         }
 
         function openAddForm() {
+            document.getElementById('new-name').value = "";
+            document.getElementById('new-count').value = "1";
+            document.getElementById('new-image-url').value = "";
             document.getElementById('add-form').classList.remove('hidden');
             renderGallery();
         }
@@ -141,7 +156,6 @@
             const count = parseInt(document.getElementById('new-count').value) || 0;
             const imageUrl = document.getElementById('new-image-url').value;
             if (!name || !imageUrl) return alert("名前と画像を選んでください");
-
             allGoods.push({ id: Date.now(), category: currentCategory, name, image: imageUrl, count });
             save();
             renderItems();
@@ -187,24 +201,16 @@
         }
 
         function save() { localStorage.setItem('myGoodsSpeedStorage', JSON.stringify(allGoods)); }
-
-        function toggleSettings() {
-            const modal = document.getElementById('settings-modal');
-            modal.classList.toggle('hidden');
-        }
-
-        // バックアップ書き出し
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('hidden'); }
         function exportData() {
             const data = JSON.stringify(allGoods, null, 2);
             const blob = new Blob([data], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `my_collection_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
         }
-
-        // バックアップ読み込み
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -212,12 +218,12 @@
             reader.onload = (e) => {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    if (confirm("データを上書きして読み込みますか？")) {
+                    if (confirm("復元しますか？")) {
                         allGoods = imported;
                         save();
                         location.reload();
                     }
-                } catch (err) { alert("正しいファイル形式ではありません"); }
+                } catch (err) { alert("無効です"); }
             };
             reader.readAsText(file);
         }
