@@ -9,34 +9,21 @@
         body { background-color: #f8f6ff; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         .purple-btn { background-color: #7c3aed; color: white; font-weight: bold; border-radius: 9999px; padding: 0.6rem 1.5rem; transition: 0.2s; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
         .purple-btn:active { transform: scale(0.95); opacity: 0.8; }
-        .card { background-color: white; border: 1px solid #e9d5ff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        
-        /* 【修正】画像選択のタイルをより小さく（1行に4〜5枚程度） */
-        .gallery-img { 
-            width: calc(20% - 6px); /* 1行に5枚 */
-            aspect-ratio: 1/1; 
-            object-fit: cover; 
-            border-radius: 0.4rem; 
-            cursor: pointer; 
-            border: 2px solid transparent; 
-            background-color: #f3f4f6; 
-        }
-        /* スマホなどの幅が狭い画面では1行4枚にする */
-        @media (max-width: 480px) {
-            .gallery-img { width: calc(25% - 6px); }
-        }
-
+        .card { background-color: white; border: 1px solid #e9d5ff; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); position: relative; }
+        .gallery-img { width: calc(20% - 6px); aspect-ratio: 1/1; object-fit: cover; border-radius: 0.4rem; cursor: pointer; border: 2px solid transparent; background-color: #f3f4f6; }
+        @media (max-width: 480px) { .gallery-img { width: calc(25% - 6px); } }
         .selected-img { border-color: #7c3aed !important; background-color: #ede9fe; transform: scale(0.9); }
         .loader { border: 2px solid #f3f3f3; border-top: 2px solid #7c3aed; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #settings-modal { background-color: rgba(0,0,0,0.5); }
+        .badge { background: #7c3aed; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; margin-left: 5px; vertical-align: middle; }
     </style>
 </head>
 <body class="min-h-screen pb-20">
 
     <header class="bg-white shadow-sm p-4 sticky top-0 z-50 border-b border-purple-200 flex justify-between items-center">
         <button onclick="toggleSettings()" class="text-xl w-10 text-left">⚙️</button>
-        <h1 class="text-xl font-black text-purple-700 cursor-pointer" onclick="location.reload()">My Collection</h1>
+        <h1 class="text-xl font-black text-purple-700 cursor-pointer" onclick="location.reload()">My Goods Manager</h1>
         <div id="global-loader" class="w-10 flex justify-center items-center">
             <div class="loader hidden"></div>
         </div>
@@ -44,16 +31,28 @@
 
     <main class="max-w-4xl mx-auto p-4">
         <div id="category-view" class="grid grid-cols-2 gap-3 mt-4">
-            <button onclick="selectCategory('缶バッジ')" class="card p-8 text-lg font-bold text-purple-800 active:bg-purple-100 transition">缶バッジ</button>
-            <button onclick="selectCategory('アクスタ')" class="card p-8 text-lg font-bold text-purple-800 active:bg-purple-100 transition">アクスタ</button>
-            <button onclick="selectCategory('紙類')" class="card p-8 text-lg font-bold text-purple-800 active:bg-purple-100 transition">紙類</button>
-            <button onclick="selectCategory('その他')" class="card p-8 text-lg font-bold text-purple-800 active:bg-purple-100 transition">その他</button>
+            <button onclick="selectCategory('缶バッジ')" class="card p-8 flex flex-col items-center gap-2">
+                <span class="text-lg font-bold text-purple-800">缶バッジ</span>
+                <span id="count-缶バッジ" class="text-xs font-bold text-purple-400">0個</span>
+            </button>
+            <button onclick="selectCategory('アクスタ')" class="card p-8 flex flex-col items-center gap-2">
+                <span class="text-lg font-bold text-purple-800">アクスタ</span>
+                <span id="count-アクスタ" class="text-xs font-bold text-purple-400">0個</span>
+            </button>
+            <button onclick="selectCategory('紙類')" class="card p-8 flex flex-col items-center gap-2">
+                <span class="text-lg font-bold text-purple-800">紙類</span>
+                <span id="count-紙類" class="text-xs font-bold text-purple-400">0個</span>
+            </button>
+            <button onclick="selectCategory('その他')" class="card p-8 flex flex-col items-center gap-2">
+                <span class="text-lg font-bold text-purple-800">その他</span>
+                <span id="count-その他" class="text-xs font-bold text-purple-400">0個</span>
+            </button>
         </div>
 
         <div id="items-view" class="hidden">
             <div class="flex justify-between items-center mb-6">
                 <button onclick="backToCategories()" class="text-purple-600 font-bold">← 戻る</button>
-                <h2 id="current-category-name" class="text-xl font-bold text-gray-800"></h2>
+                <h2 class="text-xl font-bold text-gray-800"><span id="current-category-name"></span><span id="current-category-total" class="badge">0</span></h2>
                 <button onclick="openAddForm()" class="purple-btn px-4 py-2 text-sm">+ 追加</button>
             </div>
 
@@ -61,7 +60,6 @@
                 <div class="space-y-4">
                     <input type="text" id="new-name" placeholder="グッズの名前" class="w-full p-3 border border-purple-200 rounded-xl outline-none">
                     <input type="number" id="new-count" value="1" min="0" class="w-full p-3 border border-purple-200 rounded-xl">
-                    
                     <div class="bg-purple-50 p-3 rounded-xl">
                         <div class="flex justify-between items-center mb-2">
                             <label class="text-[10px] font-bold text-purple-700 uppercase">画像を選択</label>
@@ -70,7 +68,6 @@
                         <div id="cloud-gallery" class="flex flex-wrap gap-1.5 max-h-[250px] overflow-y-auto p-1"></div>
                         <input type="hidden" id="new-image-url">
                     </div>
-
                     <button onclick="addItem()" class="w-full purple-btn py-4">保存する</button>
                     <button onclick="closeAddForm()" class="w-full text-gray-400 text-xs text-center block">キャンセル</button>
                 </div>
@@ -81,15 +78,10 @@
 
     <div id="settings-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">設定・バックアップ</h3>
+            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">設定・バックアップ</h3>
             <div class="space-y-3">
-                <button onclick="exportData()" class="w-full p-4 bg-purple-50 text-purple-700 font-bold rounded-xl border border-purple-100 text-left">
-                    📤 データを保存する
-                </button>
-                <label class="w-full p-4 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 block cursor-pointer">
-                    📥 データを読み込む
-                    <input type="file" id="import-file" class="hidden" onchange="importData(event)">
-                </label>
+                <button onclick="exportData()" class="w-full p-4 bg-purple-50 text-purple-700 font-bold rounded-xl border border-purple-100 text-left">📤 データを保存する</button>
+                <label class="w-full p-4 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 block cursor-pointer text-left">📥 データを読み込む<input type="file" id="import-file" class="hidden" onchange="importData(event)"></label>
             </div>
             <button onclick="toggleSettings()" class="w-full mt-6 text-gray-400 text-sm">閉じる</button>
         </div>
@@ -101,7 +93,10 @@
         let cachedImages = [];
         let currentCategory = "";
 
-        window.onload = () => { fetchCloudImages(false); };
+        window.onload = () => { 
+            fetchCloudImages(false); 
+            updateCategoryCounts();
+        };
 
         async function fetchCloudImages(isManual) {
             const loader = document.querySelector('#global-loader .loader');
@@ -116,9 +111,15 @@
 
         function renderGallery() {
             const gallery = document.getElementById('cloud-gallery');
-            gallery.innerHTML = cachedImages.map(img => `
-                <img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" loading="lazy">
-            `).join('') || '<p class="text-xs p-2">なし</p>';
+            gallery.innerHTML = cachedImages.map(img => `<img src="${img.url}" class="gallery-img" onclick="selectImage(this, '${img.url}')" loading="lazy">`).join('') || '<p class="text-xs p-2">なし</p>';
+        }
+
+        function updateCategoryCounts() {
+            const categories = ['缶バッジ', 'アクスタ', '紙類', 'その他'];
+            categories.forEach(cat => {
+                const total = allGoods.filter(item => item.category === cat).reduce((sum, item) => sum + (parseInt(item.count) || 0), 0);
+                document.getElementById(`count-${cat}`).innerText = `${total}個`;
+            });
         }
 
         function selectCategory(cat) {
@@ -132,6 +133,7 @@
         function backToCategories() {
             document.getElementById('category-view').classList.remove('hidden');
             document.getElementById('items-view').classList.add('hidden');
+            updateCategoryCounts();
             closeAddForm();
         }
 
@@ -181,21 +183,14 @@
         function renderItems() {
             const listArea = document.getElementById('goods-list');
             listArea.innerHTML = "";
-            allGoods.filter(i => i.category === currentCategory).forEach(item => {
+            const catItems = allGoods.filter(i => i.category === currentCategory);
+            const total = catItems.reduce((sum, item) => sum + (parseInt(item.count) || 0), 0);
+            document.getElementById('current-category-total').innerText = total;
+
+            catItems.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "card p-3 flex items-center gap-4";
-                div.innerHTML = `
-                    <img src="${item.image}" class="w-16 h-16 object-cover rounded-lg border">
-                    <div class="flex-grow">
-                        <h4 class="font-bold text-sm text-gray-800">${item.name}</h4>
-                        <div class="flex items-center gap-3 mt-1">
-                            <button onclick="changeCount(${item.id}, -1)" class="w-7 h-7 rounded-full border">-</button>
-                            <span class="font-black text-purple-700">${item.count}</span>
-                            <button onclick="changeCount(${item.id}, 1)" class="w-7 h-7 rounded-full bg-purple-100 border">+</button>
-                        </div>
-                    </div>
-                    <button onclick="deleteItem(${item.id})" class="text-[10px] text-red-300">削除</button>
-                `;
+                div.innerHTML = `<img src="${item.image}" class="w-16 h-16 object-cover rounded-lg border"><div class="flex-grow"><h4 class="font-bold text-sm text-gray-800">${item.name}</h4><div class="flex items-center gap-3 mt-1"><button onclick="changeCount(${item.id}, -1)" class="w-7 h-7 rounded-full border">-</button><span class="font-black text-purple-700">${item.count}</span><button onclick="changeCount(${item.id}, 1)" class="w-7 h-7 rounded-full bg-purple-100 border">+</button></div></div><button onclick="deleteItem(${item.id})" class="text-[10px] text-red-300">削除</button>`;
                 listArea.appendChild(div);
             });
         }
